@@ -1,6 +1,8 @@
 package com.example.educoline.entity;
 
 import jakarta.persistence.*;
+import org.springframework.http.ResponseEntity;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,20 +33,7 @@ public class Emploi {
         this.enseignant = enseignant;
     }
 
-    // Méthodes utilitaires pour gérer la relation bidirectionnelle
-    public void addCours(Cours cours) {
-        if (cours != null) {
-            this.cours.add(cours);
-            cours.setEmploi(this);
-        }
-    }
 
-    public void removeCours(Cours cours) {
-        if (cours != null) {
-            this.cours.remove(cours);
-            cours.setEmploi(null);
-        }
-    }
 
     // Getters et Setters
     public Long getId() {
@@ -83,4 +72,10 @@ public class Emploi {
             this.cours.clear();
         }
     }
+
+    public boolean isEmpty() {
+        return false;
+    }
+
+
 }

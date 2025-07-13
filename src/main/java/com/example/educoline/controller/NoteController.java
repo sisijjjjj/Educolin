@@ -1,76 +1,184 @@
 package com.example.educoline.controller;
 
-import com.example.educoline.entity.Cours;
-import com.example.educoline.entity.Enseignant;
-import com.example.educoline.entity.Etudiant;
 import com.example.educoline.entity.Note;
-import com.example.educoline.repository.CoursRepository;
-import com.example.educoline.repository.EtudiantRepository;
-import com.example.educoline.repository.NoteRepository;
 import com.example.educoline.service.NoteService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
-@RequestMapping("/notes")
-@CrossOrigin(origins = "*")
+@RequestMapping("/api/notes")
 public class NoteController {
 
-    @Autowired
-    private NoteService noteService;
-    @Autowired
-    private NoteRepository noteRepository;
-    @Autowired
-    private CoursRepository coursRepository;
-    @Autowired
-    private EtudiantRepository etudiantRepository;
+    private final NoteService noteService;
 
-    // Ajouter une note
-    @PostMapping
-    public ResponseEntity<?> addNote(@RequestBody Note note) {
-        if (note.getAbsences() > 3) {
-            return ResponseEntity
-                    .badRequest()
-                    .body("Erreur : Vous êtes éliminé(e) à cause de plus de 3 absences.");
+    public NoteController(NoteService noteService) {
+        this.noteService = noteService;
+    }
+
+    @PostMapping(
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Note> createNote(@Valid @RequestBody Note note) {
+        try {
+            Note createdNote = noteService.createNote(note);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdNote);
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Erreur lors de la création de la note: " + e.getMessage()
+            );
         }
-        Note saved = noteService.saveNote(note);
-        return ResponseEntity.status(201).body(saved);
     }
 
-    // Récupérer toutes les notes
-    @GetMapping
-    public List<Note> getAllNotes() {
-        return noteService.getAllNotes();
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<Note>> getAllNotes() {
+        List<Note> notes = noteService.getAllNotes();
+        return ResponseEntity.ok(notes);
     }
 
-    // Récupérer une note par son ID
-    @GetMapping("/{id}")
+    @GetMapping(
+            value = "/{id}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<Note> getNoteById(@PathVariable Long id) {
-        Optional<Note> note = noteService.getNoteById(id);
-        return note.isPresent() ? ResponseEntity.ok(note.get()) : ResponseEntity.notFound().build();
+        return noteService.getNoteById(id)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Note non trouvée avec l'ID: " + id
+                ));
     }
 
-    // Mettre à jour une note
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateNote(@PathVariable Long id, @RequestBody Note note) {
-        if (note.getAbsences() > 3) {
-            return ResponseEntity
-                    .badRequest()
-                    .body("Erreur : Vous êtes éliminé(e) à cause de plus de 3 absences.");
+    @GetMapping(
+            value = "/teacher/{teacherId}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<Note>> getNotesByTeacher(@PathVariable Long teacherId) {
+        List<Note> notes = noteService.getNotesByTeacher(teacherId);
+        if (notes.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Aucune note trouvée pour l'enseignant ID: " + teacherId
+            );
         }
-        Note updatedNote = noteService.updateNote(id, note);
-        return updatedNote != null ? ResponseEntity.ok(updatedNote) : ResponseEntity.notFound().build();
+        return ResponseEntity.ok(notes);
     }
 
-    // Supprimer une note
+    @GetMapping(
+            value = "/student/{studentId}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<Note>> getNotesByStudent(@PathVariable Long studentId) {
+        List<Note> notes = noteService.getNotesByStudent(studentId);
+        if (notes.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Aucune note trouvée pour l'étudiant ID: " + studentId
+            );
+        }
+        return ResponseEntity.ok(notes);
+    }
+
+    @GetMapping(
+            value = "/course/{courseId}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<Note>> getNotesByCourse(@PathVariable Long courseId) {
+        List<Note> notes = noteService.getNotesByCourse(courseId);
+        if (notes.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Aucune note trouvée pour le cours ID: " + courseId
+            );
+        }
+        return ResponseEntity.ok(notes);
+    }
+
+    @PutMapping(
+            value = "/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Note> updateNote(
+            @PathVariable Long id,
+            @Valid @RequestBody Note noteDetails) {
+        try {
+            return noteService.updateNote(id, noteDetails)
+                    .map(ResponseEntity::ok)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Note non trouvée avec l'ID: " + id
+                    ));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage()
+            );
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteNote(@PathVariable Long id) {
-        noteService.deleteNote(id);
+        boolean isDeleted = noteService.deleteNote(id);
+        if (!isDeleted) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Note non trouvée avec l'ID: " + id
+            );
+        }
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping(
+            value = "/student/{studentId}/average",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Double> getStudentAverage(@PathVariable Long studentId) {
+        Double average = noteService.calculateStudentAverage(studentId);
+        if (average == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Aucune note trouvée pour l'étudiant ID: " + studentId
+            );
+        }
+        return ResponseEntity.ok(average);
+    }
+
+    @GetMapping(
+            value = "/course/{courseId}/average",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Double> getCourseAverage(@PathVariable Long courseId) {
+        Double average = noteService.calculateCourseAverage(courseId);
+        if (average == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Aucune note trouvée pour le cours ID: " + courseId
+            );
+        }
+        return ResponseEntity.ok(average);
+    }
+
+    @GetMapping(
+            value = "/student/{studentId}/course/{courseId}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Note> getStudentCourseNote(
+            @PathVariable Long studentId,
+            @PathVariable Long courseId) {
+        return noteService.getStudentCourseNote(studentId, courseId)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Note non trouvée pour l'étudiant ID: " + studentId +
+                                " et le cours ID: " + courseId
+                ));
+    }
 }

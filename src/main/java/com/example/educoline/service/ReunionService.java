@@ -6,19 +6,28 @@ import com.example.educoline.repository.EnseignantRepository;
 import com.example.educoline.repository.ReunionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class ReunionService {
 
-    @Autowired
-    private ReunionRepository reunionRepository;
+    private final ReunionRepository reunionRepository;
+    private final EnseignantRepository enseignantRepository;
 
     @Autowired
-    private EnseignantRepository enseignantRepository;
+    public ReunionService(ReunionRepository reunionRepository,
+                          EnseignantRepository enseignantRepository) {
+        this.reunionRepository = reunionRepository;
+        this.enseignantRepository = enseignantRepository;
+    }
 
+    /**
+     * Ajoute une réunion pour un enseignant
+     */
     public Reunion addReunionForEnseignant(Long enseignantId, Reunion reunion) {
         Enseignant enseignant = enseignantRepository.findById(enseignantId)
                 .orElseThrow(() -> new RuntimeException("Enseignant non trouvé"));
@@ -26,19 +35,53 @@ public class ReunionService {
         return reunionRepository.save(reunion);
     }
 
-    // Nouvelle méthode
-    public Reunion saveReunion(Reunion reunion) {
+    /**
+     * Sauvegarde une réunion (méthode générique)
+     */
+    public Reunion save(Reunion reunion) {
         return reunionRepository.save(reunion);
     }
 
-    public List<Reunion> getReunionsByEnseignantId(Long enseignantId) {
+    /**
+     * Récupère les réunions d'un enseignant
+     */
+    public List<Reunion> findByEnseignantId(Long enseignantId) {
         return reunionRepository.findByEnseignantId(enseignantId);
     }
 
+    /**
+     * Récupère toutes les réunions
+     */
     public List<Reunion> getAllReunions() {
-        return List.of();
+        return reunionRepository.findAll();
     }
+
+    /**
+     * Récupère une réunion par son ID
+     */
     public Optional<Reunion> getReunionById(Long id) {
         return reunionRepository.findById(id);
+    }
+
+    /**
+     * Met à jour une réunion
+     */
+    public Reunion updateReunion(Long id, Reunion reunionDetails) {
+        Reunion reunion = reunionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Réunion non trouvée"));
+
+        reunion.setSujet(reunionDetails.getSujet());
+        reunion.setDateHeure(reunionDetails.getDateHeure());
+        reunion.setLieu(reunionDetails.getLieu());
+        reunion.setEmail(reunionDetails.getEmail());
+
+        return reunionRepository.save(reunion);
+    }
+
+    /**
+     * Supprime une réunion
+     */
+    public void deleteReunion(Long id) {
+        reunionRepository.deleteById(id);
     }
 }

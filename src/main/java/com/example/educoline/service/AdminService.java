@@ -1,6 +1,7 @@
 package com.example.educoline.service;
 
 import com.example.educoline.entity.Admin;
+import com.example.educoline.entity.Etudiant;
 import com.example.educoline.repository.AdminRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class AdminService {
         }
         return null;
     }
+
 
     public void deleteAdmin(Long id) {
         adminRepository.deleteById(id);

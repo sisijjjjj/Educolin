@@ -1,27 +1,73 @@
 package com.example.educoline.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
-import jakarta.servlet.http.HttpServletResponse;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
+
+import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
-public class Absence {
+@Table(name = "absences")
+@SQLDelete(sql = "UPDATE absences SET deleted = true WHERE id=?")
+@Where(clause = "deleted=false")
 
+
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
+public class Absence {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "etudiant_id", nullable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_absence_etudiant",
+                    foreignKeyDefinition = "FOREIGN KEY (etudiant_id) REFERENCES etudiants(id) ON DELETE CASCADE"
+            ))
+    private Etudiant etudiant;
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "enseignant_id", nullable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private Enseignant enseignant;
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cours_id", nullable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private Cours cours;
 
-    private Long studentId; // ID de l'étudiant qui est absent
+    @Column(nullable = false)
+    private LocalDate date;
 
-    private Long courseId;  // ID du cours auquel l'absence est liée
+    @Column(nullable = false)
+    private boolean justifiee = false;
 
-    private int numberOfAbsences;  // Nombre d'absences pour cet étudiant dans le cours
+    @Column(length = 500)
+    private String motif;
 
-    @ManyToOne
-    @JoinColumn(name = "enseignant_id")
-    private Enseignant enseignant;  // L'enseignant responsable de ce cours
+    @Column(nullable = false)
+    private boolean deleted = false;
 
-    // Getters and Setters
+    // Constructeurs
+    public Absence() {
+    }
 
+    public Absence(Etudiant etudiant, Enseignant enseignant, Cours cours, LocalDate date) {
+        this.etudiant = etudiant;
+        this.enseignant = enseignant;
+        this.cours = cours;
+        this.date = date;
+    }
+
+    // Getters et setters
     public Long getId() {
         return id;
     }
@@ -30,33 +76,12 @@ public class Absence {
         this.id = id;
     }
 
-    public Long getStudentId() {
-        return studentId;
+    public Etudiant getEtudiant() {
+        return etudiant;
     }
 
-    public void setStudentId(Long studentId) {
-        this.studentId = studentId;
-    }
-
-    public Long getCourseId() {
-        return courseId;
-    }
-
-    public void setCourseId(Long courseId) {
-        this.courseId = courseId;
-    }
-
-    public int getNumberOfAbsences() {
-        return numberOfAbsences;
-    }
-    @ManyToOne
-    @JoinColumn(name = "etudiant_id")
-    private Etudiant etudiant;
-
-
-
-    public void setNumberOfAbsences(int numberOfAbsences) {
-        this.numberOfAbsences = numberOfAbsences;
+    public void setEtudiant(Etudiant etudiant) {
+        this.etudiant = etudiant;
     }
 
     public Enseignant getEnseignant() {
@@ -67,7 +92,86 @@ public class Absence {
         this.enseignant = enseignant;
     }
 
-    public HttpServletResponse getEtudiant() {
-        return null;
+    public Cours getCours() {
+        return cours;
+    }
+
+    public void setCours(Cours cours) {
+        this.cours = cours;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
+    }
+
+    public boolean isJustifiee() {
+        return justifiee;
+    }
+
+    public void setJustifiee(boolean justifiee) {
+        this.justifiee = justifiee;
+    }
+
+    public String getMotif() {
+        return motif;
+    }
+
+    public void setMotif(String motif) {
+        this.motif = motif;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    // Méthodes métier
+    public void justifier(String motif) {
+        this.justifiee = true;
+        this.motif = motif;
+    }
+
+    public void annulerJustification() {
+        this.justifiee = false;
+        this.motif = null;
+    }
+
+    public void markAsDeleted() {
+        this.deleted = true;
+    }
+
+    // equals, hashCode, toString
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Absence absence = (Absence) o;
+        return Objects.equals(id, absence.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "Absence{" +
+                "id=" + id +
+                ", etudiantId=" + (etudiant != null ? etudiant.getId() : null) +
+                ", enseignantId=" + (enseignant != null ? enseignant.getId() : null) +
+                ", coursId=" + (cours != null ? cours.getId() : null) +
+                ", date=" + date +
+                ", justifiee=" + justifiee +
+                ", motif='" + motif + '\'' +
+                ", deleted=" + deleted +
+                '}';
     }
 }

@@ -15,20 +15,26 @@ public class Admin {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String nom;
-    private String niveau;
-    private String section;
-    private int nombreEtudiants;
+    @Column(nullable = false)
+    private String nom = "";  // Valeur par défaut vide au lieu de null
 
-    // === Coordonnées supplémentaires (optionnel mais recommandé) ===
+    @Column(nullable = false)
+    private String niveau = "Non spécifié";  // Valeur par défaut
+
+    @Column(nullable = false)
+    private String section = "Générale";  // Valeur par défaut
+
+    @Column(nullable = false)
+    private int nombreEtudiants = 0;  // Valeur par défaut
+
+    // Coordonnées supplémentaires (peuvent être null)
     private String prenom;
     private String email;
     private String telephone;
     private String adresse;
 
-    // === Relations ===
-
-    @ManyToMany
+    // Relations
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "admin_enseignants",
             joinColumns = @JoinColumn(name = "admin_id"),
@@ -36,16 +42,26 @@ public class Admin {
     )
     private List<Enseignant> enseignants = new ArrayList<>();
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "admin_etudiants",
             joinColumns = @JoinColumn(name = "admin_id"),
             inverseJoinColumns = @JoinColumn(name = "etudiant_id")
     )
     private List<Etudiant> etudiants = new ArrayList<>();
+    private String nivel;
 
-    // === Getters et Setters ===
+    // Constructeurs
+    public Admin() {
+    }
 
+    public Admin(String nom, String niveau, String section) {
+        this.nom = nom != null ? nom : "";
+        this.niveau = niveau != null ? niveau : "Non spécifié";
+        this.section = section != null ? section : "Générale";
+    }
+
+    // Getters et Setters avec protection contre null
     public Long getId() {
         return id;
     }
@@ -55,11 +71,11 @@ public class Admin {
     }
 
     public String getNom() {
-        return nom;
+        return nom != null ? nom : "";
     }
 
     public void setNom(String nom) {
-        this.nom = nom;
+        this.nom = nom != null ? nom : "";
     }
 
     public String getPrenom() {
@@ -95,19 +111,20 @@ public class Admin {
     }
 
     public String getNiveau() {
-        return niveau;
+        String nivel = "";
+        return nivel != null ? nivel : "Non spécifié";
     }
 
-    public void setNiveau(String niveau) {
-        this.niveau = niveau;
+    public void setNiveau(String nivel) {
+        this.nivel = nivel != null ? nivel : "Non spécifié";
     }
 
     public String getSection() {
-        return section;
+        return section != null ? section : "Générale";
     }
 
     public void setSection(String section) {
-        this.section = section;
+        this.section = section != null ? section : "Générale";
     }
 
     public int getNombreEtudiants() {
@@ -115,7 +132,7 @@ public class Admin {
     }
 
     public void setNombreEtudiants(int nombreEtudiants) {
-        this.nombreEtudiants = nombreEtudiants;
+        this.nombreEtudiants = Math.max(nombreEtudiants, 0); // Évite les valeurs négatives
     }
 
     public List<Enseignant> getEnseignants() {
@@ -123,7 +140,7 @@ public class Admin {
     }
 
     public void setEnseignants(List<Enseignant> enseignants) {
-        this.enseignants = enseignants;
+        this.enseignants = enseignants != null ? enseignants : new ArrayList<>();
     }
 
     public List<Etudiant> getEtudiants() {
@@ -131,10 +148,74 @@ public class Admin {
     }
 
     public void setEtudiants(List<Etudiant> etudiants) {
-        this.etudiants = etudiants;
+        this.etudiants = etudiants != null ? etudiants : new ArrayList<>();
     }
 
+    // Méthodes utilitaires pour gérer les relations
+    public void addEnseignant(Enseignant enseignant) {
+        if (enseignant != null && !this.enseignants.contains(enseignant)) {
+            this.enseignants.add(enseignant);
+
+        }
+    }
+
+    public void removeEnseignant(Enseignant enseignant) {
+        if (enseignant != null) {
+            this.enseignants.remove(enseignant);
+
+        }
+    }
+
+    public void addEtudiant(Etudiant etudiant) throws InterruptedException {
+        if (etudiant != null && !this.etudiants.contains(etudiant)) {
+            this.etudiants.add(etudiant);
+            etudiant.getAdmins().wait();
+        }
+    }
+
+
+
+    // Méthode map simplifiée
     public Optional<ResponseEntity<Object>> map(Object o) {
         return Optional.empty();
+    }
+
+    // Méthode toString pour le débogage
+    @Override
+    public String toString() {
+        String nivel = "";
+        return "Admin{" +
+                "id=" + id +
+                ", nom='" + nom + '\'' +
+                ", prenom='" + prenom + '\'' +
+                ", niveau='" + nivel + '\'' +
+                ", section='" + section + '\'' +
+                '}';
+    }
+
+    public String getPassword() {
+        return "";
+    }
+
+    public Object getRole() {
+        return null;
+    }
+
+    public void setRole(Object role) {
+    }
+
+    public Object getDateNaissance() {
+        return null;
+    }
+
+    public Object getDiplome() {
+        return null;
+    }
+
+    public Object getNbAnneeExperience() {
+        return null;
+    }
+
+    public void getMatieresEnseignees() {
     }
 }

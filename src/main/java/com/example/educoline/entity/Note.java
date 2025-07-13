@@ -1,55 +1,76 @@
 package com.example.educoline.entity;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "notes")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Note {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private Double tp;
 
+    @Column(nullable = false)
     private Double exam;
 
+    @Column(nullable = false)
     private Integer absences;
 
-    private Boolean retakeSession = false;
+    @Column(nullable = false)
+    private Double moyenne;
 
-    @ManyToOne
-    @JoinColumn(name = "etudiant_id")
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
 
-    private Etudiant etudiant;
-    @ManyToOne
-    @JoinColumn(name = "enseignant_id") // ou le nom réel de votre colonne
-    private Enseignant enseignant;
-
-    @ManyToOne
-    @JoinColumn(name = "cours_id")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "cours_id", nullable = false)
     private Cours cours;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "etudiant_id", nullable = false,
+            foreignKey = @ForeignKey(
+                    name = "fk_note_to_etudiant",
+                    foreignKeyDefinition = "FOREIGN KEY (etudiant_id) REFERENCES etudiants(id) ON DELETE CASCADE"
+            ))
+    private Etudiant etudiant;
 
-    // Getters & Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "enseignant_id", nullable = false)
+    private Enseignant enseignant;
 
-    public Double getTp() { return tp; }
-    public void setTp(Double tp) { this.tp = tp; }
+    @PrePersist
+    @PreUpdate
+    public void calculateMoyenne() {
+        if (tp != null && exam != null) {
+            this.moyenne = (tp * 0.4) + (exam * 0.6);
+        } else {
+            throw new IllegalStateException("TP and Exam grades must be provided to calculate moyenne");
+        }
+    }
 
-    public Double getExam() { return exam; }
-    public void setExam(Double exam) { this.exam = exam; }
+    public double getValeur() {
+        return 0;
+    }
 
-    public Integer getAbsences() { return absences; }
-    public void setAbsences(Integer absences) { this.absences = absences; }
+    public String getDateCreation() {
+        return "";
+    }
 
-    public Boolean getRetakeSession() { return retakeSession; }
-    public void setRetakeSession(Boolean retakeSession) { this.retakeSession = retakeSession; }
-
-    public Etudiant getEtudiant() { return etudiant; }
-    public void setEtudiant(Etudiant etudiant) { this.etudiant = etudiant; }
-
-    public Cours getCours() { return cours; }
-    public void setCours(Cours cours) { this.cours = cours; }
+    public void setDateCreation(LocalDate now) {
+    }
 }

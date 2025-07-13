@@ -4,6 +4,8 @@ package com.example.educoline.service;
 import com.example.educoline.entity.Emploi;
 import com.example.educoline.repository.EmploiRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -23,5 +25,9 @@ public class EmploiService {
     public Emploi getEmploiByEnseignantId(Long enseignantId) {
         return emploiRepository.findByEnseignantId(enseignantId)
                 .orElseThrow(() -> new RuntimeException("Emploi non trouvé"));
+    }
+
+    public List<Emploi> getAllEmplois() {
+        return List.of();
     }
 }

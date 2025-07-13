@@ -1,104 +1,256 @@
 package com.example.educoline.entity;
 
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
-import java.util.List;
+import jakarta.validation.constraints.*;
+import lombok.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
+
+import java.time.LocalDate;
+import java.util.*;
 
 @Entity
-@Table(name = "enseignants")
+@Table(name = "enseignants",
+        uniqueConstraints = @UniqueConstraint(columnNames = "email"),
+        indexes = {
+                @Index(name = "idx_enseignant_email", columnList = "email"),
+                @Index(name = "idx_enseignant_nom_prenom", columnList = "nom, prenom")
+        })
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString(exclude = {"password", "reunions", "notes"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Enseignant {
-
-    @Version
-    private int version;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(updatable = false)
     private Long id;
 
-    @OneToMany(mappedBy = "enseignant")
-    private List<Etudiant> etudiants;
+    @Version
+    @JsonIgnore
+    private Integer version;
 
-    @OneToMany(mappedBy = "enseignant")
-    private List<Note> notes;
-
-    private String name;
-    private String email;
-    private String subject;
+    @NotBlank(message = "Le nom est obligatoire")
+    @Size(min = 2, max = 50, message = "Le nom doit contenir entre 2 et 50 caractères")
+    @Column(nullable = false, length = 50)
     private String nom;
+
+    @NotBlank(message = "Le prénom est obligatoire")
+    @Size(min = 2, max = 50, message = "Le prénom doit contenir entre 2 et 50 caractères")
+    @Column(nullable = false, length = 50)
     private String prenom;
-    private String dateNaissance;
-    private String niveauScolaire;
+
+    @NotBlank(message = "L'email est obligatoire")
+    @Email(message = "L'email doit être valide")
+    @Column(nullable = false, unique = true, length = 100)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @NotNull(message = "La date de naissance est obligatoire")
+    @Past(message = "La date de naissance doit être dans le passé")
+    @Column(name = "date_naissance", nullable = false)
+    private LocalDate dateNaissance;
+
+    @NotBlank(message = "Le diplôme est obligatoire")
+    @Column(nullable = false, length = 100)
     private String diplome;
-    private int nbAnneeExperience;
-    private int nbClasse;
-    private String emploiTemps;
 
-    @OneToMany(mappedBy = "enseignant", cascade = CascadeType.ALL)
-    private List<Cours> cours;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StatusEnseignant status = StatusEnseignant.ACTIF;
 
-    @ManyToMany(mappedBy = "enseignants")
-    private List<Classe> classes;
+    @NotNull(message = "Le nombre d'années d'expérience est obligatoire")
+    @Min(value = 0, message = "L'expérience ne peut pas être négative")
+    @Column(name = "nb_annee_experience", nullable = false)
+    private Integer nbAnneeExperience;
 
-    @OneToMany(mappedBy = "enseignant", cascade = CascadeType.ALL)
-    private List<Reunion> reunions;
+    @NotNull(message = "Le nombre de classes est obligatoire")
+    @Min(value = 0, message = "Le nombre de classes ne peut pas être négatif")
+    @Column(name = "nb_classe", nullable = false)
+    private Integer nbClasse = 0;
 
-    @OneToMany(mappedBy = "enseignant", cascade = CascadeType.ALL)
-    private List<CongeRequest> demandesConge; // 🆕 ajout de la relation avec CongeRequest
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "enseignant_matieres",
+            joinColumns = @JoinColumn(name = "enseignant_id"),
+            foreignKey = @ForeignKey(name = "fk_enseignant_matieres"))
+    @Column(name = "matiere", length = 50)
+    @Fetch(FetchMode.SUBSELECT)
+    private Set<String> matieresEnseignees = new HashSet<>();
 
-    // Getters et Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @OneToMany(mappedBy = "enseignant",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
 
-    public int getVersion() { return version; }
-    public void setVersion(int version) { this.version = version; }
+    @JsonIgnore
+    private List<Cours> cours = new ArrayList<>();
 
-    public List<Etudiant> getEtudiants() { return etudiants; }
-    public void setEtudiants(List<Etudiant> etudiants) { this.etudiants = etudiants; }
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "enseignant_classe",
+            joinColumns = @JoinColumn(name = "enseignant_id",
+                    foreignKey = @ForeignKey(name = "fk_enseignant_classe_enseignant")),
+            inverseJoinColumns = @JoinColumn(name = "classe_id",
+                    foreignKey = @ForeignKey(name = "fk_enseignant_classe_classe")))
+    @JsonIdentityInfo(
+            generator = ObjectIdGenerators.PropertyGenerator.class,
+            property = "id")
+    @JsonIgnoreProperties("enseignants") // Solution clé
+    private Set<Classe> classes = new HashSet<>();
 
-    public List<Note> getNotes() { return notes; }
-    public void setNotes(List<Note> notes) { this.notes = notes; }
+    @OneToMany(mappedBy = "enseignant",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Reunion> reunions = new ArrayList<>();
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    @OneToMany(mappedBy = "enseignant",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<Etudiant> etudiants = new HashSet<>();
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
 
-    public String getSubject() { return subject; }
-    public void setSubject(String subject) { this.subject = subject; }
 
-    public String getNom() { return nom; }
-    public void setNom(String nom) { this.nom = nom; }
+    @OneToMany(mappedBy = "enseignant",
+            fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<Note> notes = new HashSet<>();
 
-    public String getPrenom() { return prenom; }
-    public void setPrenom(String prenom) { this.prenom = prenom; }
+    @PrePersist
+    @PreUpdate
+    private void validate() {
+        if (this.nbAnneeExperience == null) {
+            this.nbAnneeExperience = 0;
+        }
+        if (this.nbClasse == null) {
+            this.nbClasse = 0;
+        }
+        if (this.status == null) {
+            this.status = StatusEnseignant.ACTIF;
+        }
+    }
 
-    public String getDateNaissance() { return dateNaissance; }
-    public void setDateNaissance(String dateNaissance) { this.dateNaissance = dateNaissance; }
+    // Méthodes utilitaires
+    public void addEtudiant(Etudiant etudiant) {
+        if (etudiant != null && !this.etudiants.contains(etudiant)) {
+            this.etudiants.add(etudiant);
+            etudiant.setEnseignant(this);
+        }
+    }
 
-    public String getNiveauScolaire() { return niveauScolaire; }
-    public void setNiveauScolaire(String niveauScolaire) { this.niveauScolaire = niveauScolaire; }
+    public void removeEtudiant(Etudiant etudiant) {
+        if (etudiant != null && this.etudiants.contains(etudiant)) {
+            this.etudiants.remove(etudiant);
+            etudiant.setEnseignant(null);
+        }
+    }
 
-    public String getDiplome() { return diplome; }
-    public void setDiplome(String diplome) { this.diplome = diplome; }
+    public void addClasse(Classe classe) {
+        if (classe != null && !this.classes.contains(classe)) {
+            this.classes.add(classe);
+            classe.getEnseignants().add(this);
+            this.nbClasse = this.classes.size();
+        }
+    }
 
-    public int getNbAnneeExperience() { return nbAnneeExperience; }
-    public void setNbAnneeExperience(int nbAnneeExperience) { this.nbAnneeExperience = nbAnneeExperience; }
+    public void removeClasse(Classe classe) {
+        if (classe != null && this.classes.contains(classe)) {
+            this.classes.remove(classe);
+            classe.getEnseignants().remove(this);
+            this.nbClasse = this.classes.size();
+        }
+    }
 
-    public int getNbClasse() { return nbClasse; }
-    public void setNbClasse(int nbClasse) { this.nbClasse = nbClasse; }
+    public void addMatiere(String matiere) {
+        if (matiere != null && !matiere.isBlank()) {
+            this.matieresEnseignees.add(matiere.trim());
+        }
+    }
 
-    public String getEmploiTemps() { return emploiTemps; }
-    public void setEmploiTemps(String emploiTemps) { this.emploiTemps = emploiTemps; }
+    public void addCours(Cours cours) {
+        if (cours != null && !this.cours.contains(cours)) {
+            this.cours.add(cours);
+            cours.setEnseignant(this);
+        }
+    }
 
-    public List<Cours> getCours() { return cours; }
-    public void setCours(List<Cours> cours) { this.cours = cours; }
+    public void removeCours(Cours cours) {
+        if (cours != null && this.cours.contains(cours)) {
+            this.cours.remove(cours);
+            cours.setEnseignant(null);
+        }
+    }
 
-    public List<Classe> getClasses() { return classes; }
-    public void setClasses(List<Classe> classes) { this.classes = classes; }
+    public void addNote(Note note) {
+        if (note != null && !this.notes.contains(note)) {
+            this.notes.add(note);
+            note.setEnseignant(this);
+        }
+    }
 
-    public List<Reunion> getReunions() { return reunions; }
-    public void setReunions(List<Reunion> reunions) { this.reunions = reunions; }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Enseignant)) return false;
+        Enseignant that = (Enseignant) o;
+        return Objects.equals(id, that.id) &&
+                Objects.equals(email, that.email);
+    }
 
-    public List<CongeRequest> getDemandesConge() { return demandesConge; }
-    public void setDemandesConge(List<CongeRequest> demandesConge) { this.demandesConge = demandesConge; }
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, email);
+    }
+
+    public void setStatutConge(String statut) {
+        this.status = StatusEnseignant.fromString(statut);
+    }
+
+    public String getNomComplet() {
+        return this.prenom + " " + this.nom;
+    }
+
+    public Object getSpecialite() {
+        return null;
+    }
+
+    public enum StatusEnseignant {
+        ACTIF, INACTIF, EN_CONGE;
+
+        @JsonCreator
+        public static StatusEnseignant fromString(String key) {
+            if (key == null) return null;
+            switch (key.trim().toLowerCase()) {
+                case "actif":
+                    return ACTIF;
+                case "inactif":
+                    return INACTIF;
+                case "en_conge":
+                case "en conge":
+                    return EN_CONGE;
+                default:
+                    throw new IllegalArgumentException("Invalid status: " + key);
+            }
+        }
+
+        public StatusEnseignant getStatus() {
+            return null;
+        }
+    }
+    // In Enseignant.java
+    @OneToMany(mappedBy = "enseignant", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore  // Add this instead of @JsonManagedReference
+    private List<Conge> conges = new ArrayList<>();
+
 }
+
+

@@ -1,9 +1,9 @@
 package com.example.educoline.controller;
 
-import com.example.educoline.entity.EmailRequest;
-import com.example.educoline.entity.Etudiant;
+import com.example.educoline.entity.*;
 import com.example.educoline.service.EtudiantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,12 +11,11 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping(value = "/api/etudiants", produces = MediaType.APPLICATION_JSON_VALUE)
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "http://localhost:4200/")
 public class EtudiantController {
 
     private final EtudiantService etudiantService;
@@ -28,62 +27,32 @@ public class EtudiantController {
         this.mailSender = mailSender;
     }
 
-    // Récupérer tous les étudiants
+    @PostMapping
+    public ResponseEntity<Etudiant> createEtudiant(@RequestBody Etudiant etudiant) {
+        try {
+            Etudiant savedEtudiant = etudiantService.createEtudiant(etudiant);
+            return new ResponseEntity<>(savedEtudiant, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     @GetMapping
     public ResponseEntity<List<Etudiant>> getAllEtudiants() {
         List<Etudiant> etudiants = etudiantService.getAllEtudiants();
         return ResponseEntity.ok(etudiants);
     }
 
-    // Récupérer un étudiant par ID
     @GetMapping("/{id}")
     public ResponseEntity<Etudiant> getEtudiantById(@PathVariable Long id) {
-        return etudiantService.getEtudiantById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    // Ajouter un nouvel étudiant
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Etudiant> addEtudiant(@RequestBody Etudiant etudiant) {
-        Etudiant created = etudiantService.addEtudiant(etudiant);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
-
-    // Mettre à jour un étudiant
-    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Etudiant> updateEtudiant(
-            @PathVariable Long id,
-            @RequestBody Etudiant etudiant) {
-        Etudiant updated = etudiantService.updateEtudiant(id, etudiant);
-        if (updated != null) {
-            return ResponseEntity.ok(updated);
+        Optional<Etudiant> etudiant = etudiantService.getEtudiantById(id);
+        if (etudiant.isPresent()) {
+            return ResponseEntity.ok(etudiant.get());
         } else {
             return ResponseEntity.notFound().build();
         }
     }
 
-    // Supprimer un étudiant
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEtudiant(@PathVariable Long id) {
-        boolean deleted = etudiantService.deleteEtudiant(id);
-        if (deleted) {
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    // Récupérer les étudiants d'une classe
-    @GetMapping("/classe/{idClasse}")
-    public ResponseEntity<List<Etudiant>> getEtudiantsByClasse(@PathVariable Long idClasse) {
-        List<Etudiant> etudiants = etudiantService.getEtudiantsByClasse(idClasse);
-        return ResponseEntity.ok(etudiants);
-    }
-
-
-
-    // Envoyer un email à un enseignant (GET — à éviter en production)
     @GetMapping("/{etudiantId}/send-email")
     public ResponseEntity<String> sendEmailToTeacherGet(
             @PathVariable Long etudiantId,
@@ -93,10 +62,16 @@ public class EtudiantController {
         return sendEmail(etudiantId, teacherEmail, subject, message);
     }
 
-    // Méthode privée pour l’envoi d’email
+    @PostMapping(value = "/{etudiantId}/send-email", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> sendEmailToTeacherPost(
+            @PathVariable Long etudiantId,
+            @RequestBody EmailRequest emailRequest) {
+        return sendEmail(etudiantId, emailRequest.getTeacherEmail(), emailRequest.getSubject(), emailRequest.getMessage());
+    }
+
     private ResponseEntity<String> sendEmail(Long etudiantId, String teacherEmail, String subject, String message) {
         Optional<Etudiant> opt = etudiantService.getEtudiantById(etudiantId);
-        if (opt.isEmpty()) {
+        if (!opt.isPresent()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Étudiant non trouvé pour id=" + etudiantId);
         }
@@ -105,7 +80,6 @@ public class EtudiantController {
 
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
-
             msg.setFrom("sirinemimouni97@gmail.com");
             msg.setTo(teacherEmail);
 
@@ -127,25 +101,50 @@ public class EtudiantController {
                     .body("Erreur lors de l'envoi de l'email: " + e.getMessage());
         }
     }
-    // Récupérer l'email d'un étudiant par son ID
-    // Récupérer l'email d'un étudiant par son ID
+
     @GetMapping("/{id}/email")
     public ResponseEntity<String> getEtudiantEmail(@PathVariable Long id) {
-        Optional<Etudiant> opt = etudiantService.getEtudiantById(id);
-        if (opt.isPresent()) {
-            Etudiant etudiant = opt.get();
-            return ResponseEntity.ok(etudiant.getEmail());
+        Optional<Etudiant> etudiant = etudiantService.getEtudiantById(id);
+        if (etudiant.isPresent()) {
+            return ResponseEntity.ok(etudiant.get().getEmail());
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Étudiant avec l'ID " + id + " non trouvé.");
+            return ResponseEntity.notFound().build();
         }
     }
-    @PostMapping(value = "/{etudiantId}/send-email", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> sendEmailToTeacherPost(
-            @PathVariable Long etudiantId,
-            @RequestBody EmailRequest emailRequest) {
-        return sendEmail(etudiantId, emailRequest.getTeacherEmail(), emailRequest.getSubject(), emailRequest.getMessage());
+
+    @GetMapping("/{id}/cours")
+    public ResponseEntity<Set<Cours>> getCoursByEtudiant(@PathVariable Long id) {
+        Optional<Etudiant> etudiant = etudiantService.getEtudiantById(id);
+        if (etudiant.isPresent()) {
+            return ResponseEntity.ok(etudiant.get().getCours());
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
+    @GetMapping("/{id}/notes")
+    public ResponseEntity<ArrayList<Note>> getNotesByEtudiant(@PathVariable Long id) {
+        Optional<Etudiant> etudiant = etudiantService.getEtudiantById(id);
+        if (etudiant.isPresent()) {
+            return ResponseEntity.ok(new ArrayList<>(etudiant.get().getNotes()));
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
 
+    @GetMapping("/{id}/absences")
+    public HttpEntity<List<Absence>> getAbsencesByEtudiant(@PathVariable Long id) {
+        Optional<Etudiant> etudiant = etudiantService.getEtudiantById(id);
+        if (etudiant.isPresent()) {
+            return ResponseEntity.ok(etudiant.get().getAbsences());
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/all/cours")
+    public ResponseEntity<List<Cours>> getAllCoursForAllEtudiants() {
+        List<Cours> allCours = etudiantService.getAllCoursForAllEtudiants();
+        return ResponseEntity.ok(allCours);
+    }
 }
